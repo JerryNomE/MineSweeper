@@ -32,7 +32,7 @@ const block_around = (x, y) =>{
 
 const setMines = (x, y) => {
 	let result = [{x, y}];
-	while(result.length <= m+1){
+	while(result.length <= $m+1){
 		let ranPos = {x:ran(0, $w-1), y:ran(0, $h-1)};
 		if (!result.some(({x, y}) => x==ranPos.x&&y==ranPos.y)) {result.push(ranPos)}
 	}
@@ -40,11 +40,13 @@ const setMines = (x, y) => {
 	result.shift();
 	result.forEach(({x, y}) => $board[x][y].mark = -1);
 
-	$board.forEach((v) => {
-		v.forEach((w) => {
-			if (w.mark != -1) {w.mark = w.around.reduce((pre, cur)=>cur.mark==-1 ? pre++ : pre, 0)}
-		})
-	})
+	$board.forEach((v) => v.forEach((w) => {
+		if (w.mark != -1) {
+			w.mark = w.around.reduce((pre, cur)=>{
+				return cur.mark == -1 ? pre+1 : pre
+			}, 0);
+		}
+	}))
 }
 
 class Block{
@@ -59,16 +61,24 @@ class Block{
 
 		this.hover  = false;
 		this.active = false;
+
+		this.trigger = false;
 	}
 
 	init(){
-		this.around = block_around(this.x, this.y).map(({i, j})=> $board[i][j]);
+		this.around = block_around(this.x, this.y).map(({i, j}) => $board[i][j]);
 	}
 
 	flip(){
-		if ($first) {setMines(this.x, this.y)}
+		if ($first) {
+			setMines(this.x, this.y);
+			$first = false;
+		}
 
-		if (this.mark == -1) return _lose;
+		if (this.mark == -1) {
+			this.trigger = true;
+			return _lose;
+		}
 
 		this.isFlipped = true;
 		$unflipped--;
@@ -76,15 +86,20 @@ class Block{
 		if ($unflipped == 0) return _win;
 
 		if (this.mark == 0){
-			this.around.forEach(({i, j}) => {
-				let next = $board[i][j];
-				if (!next.isFlipped && !next.isFlagged) {
-					next.flip()
-				}
-			})
+			return this.flip_around();
 		};
 
 		return $unflipped;
+	}
+
+	flip_around(){
+		let result = this.around.map((b) => {
+			if (!b.isFlipped && !b.isFlagged) {
+				return b.flip();
+			}
+		});
+		return result.includes(_lose) ? _lose :
+				result.includes(_win) ? _win : $unflipped;
 	}
 
 	flag(){this.isFlagged = !this.isFlagged}
@@ -114,4 +129,6 @@ export default class MineSweeperBoard{
 	}
 
 	getBoard(){return $board}
+
+	getFirst(){return $first}
 }

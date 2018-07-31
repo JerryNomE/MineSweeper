@@ -60,17 +60,17 @@ export default class MouseDMUHelper{
 			let m = this.mousemove;
 			let position = {x:e.offsetX, y:e.offsetY};
 
-			if (isFun(m.default)) {m.default(position)}
-
 			if (down.right &&  down.left) {
 				if (isFun(m.both)) {
 					m.both(position);
 				}
 			}
 			else{
-				if (l && isFun(m.left)) {m.left(position)}
-				if (r && isFun(m.right)) {m.right(position)}
+				if (down.left && isFun(m.left)) {m.left(position)}
+				if (down.right && isFun(m.right)) {m.right(position)}
 			}
+
+			if (isFun(m.default)) {m.default(position)}
 		}
 
 		/*----------mouseup----------*/
