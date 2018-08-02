@@ -1,8 +1,9 @@
-import MouseDMUHelper from './js/items/MouseDMUHelper';
-import ifWithin from './js/items/ifWithin';
-import equal from './js/items/ObjectSimpleEqual.js';
+import MouseDMUHelper from './js/funs/MouseDMUHelper';
+import ifWithin from './js/funs/ifWithin';
+import equal from './js/funs/ObjectSimpleEqual.js';
 import MineSweeperBoard from './js/logic/MineSweeperBoard';
-import getUI_block from './js/UI/getUI_block';
+import get_UIblock from './js/UI/get_UIblock';
+import Firework from './js/runtime/Firework';
 import config from './config';
 
 const {BLOCK_SIZE, FONT_SIZE, FONT_MARGIN} = config;
@@ -22,7 +23,6 @@ let GAME_Y = FONT_HEIGHT;
 let CANVAS_WIDTH  = BLOCKS_WIDTH;
 let CANVAS_HEIGHT = BLOCKS_HEIGHT + FONT_HEIGHT;
 
-
 const canvas = document.getElementById('canvas');
 canvas.width = CANVAS_WIDTH;
 canvas.height = CANVAS_HEIGHT;
@@ -32,6 +32,8 @@ let aniId = 0;
 
 let game = new MineSweeperBoard(HOR, VER, MINE);
 let board = game.getBoard();
+
+let firework = [];
 
 const OUT_OF_BLOCK = {x:-1, y:-1};
 let mouseon_block = OUT_OF_BLOCK;
@@ -49,141 +51,159 @@ const get_mouseon_block = function (x,y){
 }
 
 const loop = function () {
-	ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+	ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
 	board.forEach((v,i) => v.forEach((w,j)=>{
-		ctx.drawImage(getUI_block(w),
+		ctx.drawImage(get_UIblock(w),
 			GAME_X + i*BLOCK_SIZE,
 			GAME_Y + j*BLOCK_SIZE,
 			BLOCK_SIZE, BLOCK_SIZE);
 	}));
 
+	firework.forEach((v)=>{
+		v.lights.forEach((w)=>{
+			ctx.fillStyle = w.color;
+			ctx.fillRect(w.x,w.y,2,2);
+		});
+		v.next();
+	});
+
     aniId = window.requestAnimationFrame(loop);
 };
 
+const lose = () => {
+	board.forEach((w)=>w.forEach((v)=>{
+		if (!(v.mark == -1 && v.isFlagged)) {v.isFlipped = true}
+	}));
+	firework.push(new Firework());
+}
+
+const win = () => {
+	board.forEach((w)=>w.forEach((v)=>{
+		if (v.mark == -1) {v.isFlagged = true}
+		else v.isFlipped = true;
+	}));
+}
 
 
+let mousedown = {
+	left({x,y}){
+		let newPos = get_mouseon_block(x,y);
+		if (!equal(newPos,OUT_OF_BLOCK)) {
+			board[newPos.x][newPos.y].active = true;
+		}
+	},
 
+	right({x,y}){},
 
-// xy为鼠标坐标
-// ij为格子坐标
-(function () {
-	let mousedown = {
-		left({x,y}){
-			let newPos = get_mouseon_block(x,y);
-			if (!equal(newPos,OUT_OF_BLOCK)) {
-				board[newPos.x][newPos.y].active = true;
+	both({x,y}){
+		let newPos = get_mouseon_block(x,y);
+		if (!equal(newPos,OUT_OF_BLOCK)) {
+			board[newPos.x][newPos.y].active = true;
+			board[newPos.x][newPos.y].around.forEach((b)=>b.active = true);
+		}
+	},
+};
+
+let mousemove = {
+	default({x,y}){
+		let newPos = get_mouseon_block(x,y);
+		if (!equal(mouseon_block,newPos)) {
+			if (mouseon_block.x != -1) {
+				board[mouseon_block.x][mouseon_block.y].hover = false
 			}
-		},
+			if (newPos.x != -1) {board[newPos.x][newPos.y].hover = true}
+			mouseon_block = newPos;
+		}
+	},
 
-		right({x,y}){},
-
-		both({x,y}){
-			let newPos = get_mouseon_block(x,y);
-			if (!equal(newPos,OUT_OF_BLOCK)) {
-				board[newPos.x][newPos.y].active = true;
-				board[newPos.x][newPos.y].around.forEach((b)=>b.active = true);
+	left({x,y}){
+		let newPos = get_mouseon_block(x,y);
+		if (!equal(mouseon_block,newPos)) {
+			if (mouseon_block.x != -1) {
+				board[mouseon_block.x][mouseon_block.y].active = false
 			}
-		},
-	};
-	let mousemove = {
-		default({x,y}){
-			let newPos = get_mouseon_block(x,y);
-			if (!equal(mouseon_block,newPos)) {
-				if (mouseon_block.x != -1) {
-					board[mouseon_block.x][mouseon_block.y].hover = false
-				}
-				if (newPos.x != -1) {board[newPos.x][newPos.y].hover = true}
-				mouseon_block = newPos;
+			if (newPos.x != -1) {board[newPos.x][newPos.y].active = true}
+		}
+	},
+	right({x,y}){},
+
+	both({x,y}){
+		let newPos = get_mouseon_block(x,y);
+		if (!equal(mouseon_block,newPos)) {
+			if (mouseon_block.x != -1) {
+				let b = board[mouseon_block.x][mouseon_block.y];
+				b.active = false;
+				b.around.forEach((x)=>x.active=false);
 			}
-		},
-
-		left({x,y}){
-			let newPos = get_mouseon_block(x,y);
-			if (!equal(mouseon_block,newPos)) {
-				if (mouseon_block.x != -1) {
-					board[mouseon_block.x][mouseon_block.y].active = false
-				}
-				if (newPos.x != -1) {board[newPos.x][newPos.y].active = true}
+			if (newPos.x != -1) {
+				let b = board[newPos.x][newPos.y];
+				b.active = true;
+				b.around.forEach((x)=>x.active=true);
 			}
-		},
-		right({x,y}){},
+		}
+	},
+};
 
-		both({x,y}){
-			let newPos = get_mouseon_block(x,y);
-			if (!equal(mouseon_block,newPos)) {
-				if (mouseon_block.x != -1) {
-					let b = board[mouseon_block.x][mouseon_block.y];
-					b.active = false;
-					b.around.forEach((x)=>x.active=false);
-				}
-				if (newPos.x != -1) {
-					let b = board[newPos.x][newPos.y];
-					b.active = true;
-					b.around.forEach((x)=>x.active=true);
-				}
+let mouseup = {
+	left({x,y}){
+		let newPos = get_mouseon_block(x,y);
+		if (!equal(newPos,OUT_OF_BLOCK)) {
+			let cur = board[newPos.x][newPos.y];
+			cur.active = false;
+			if (!cur.isFlipped && !cur.isFlagged) {
+				let result = cur.flip();
+				if (result == Symbol.for('lose')) {lose()}
+				else if (result == Symbol.for('win')) {win()}
 			}
-		},
-	};
-	let mouseup = {
-		left({x,y}){
-			let newPos = get_mouseon_block(x,y);
-			if (!equal(newPos,OUT_OF_BLOCK)) {
-				let cur = board[newPos.x][newPos.y];
-				cur.active = false;
-				if (!cur.isFlipped && !cur.isFlagged) {
-					let result = cur.flip();
-					console.log(result);
-				}
+		}
+	},
+
+	right({x,y}){
+		let newPos = get_mouseon_block(x,y);
+		if (!equal(newPos,OUT_OF_BLOCK)) {
+			board[newPos.x][newPos.y].flag();
+		}
+	},
+
+	cancelLeft({x,y}){
+		let newPos = get_mouseon_block(x,y);
+		if (!equal(newPos,OUT_OF_BLOCK)) {
+			board[newPos.x][newPos.y].active = false;
+			board[newPos.x][newPos.y].around.forEach((b)=>b.active = false);
+		}
+	},
+
+	cancelRight({x,y}){
+		let newPos = get_mouseon_block(x,y);
+		if (!equal(newPos,OUT_OF_BLOCK)) {
+			board[newPos.x][newPos.y].around.forEach((b)=>b.active = false);
+		}
+	},
+
+	both({x,y}){
+		let newPos = get_mouseon_block(x,y);
+		if (!equal(newPos,OUT_OF_BLOCK)) {
+			let cur = board[newPos.x][newPos.y];
+			cur.active = false;
+			let flags = cur.around.reduce((pre,b)=>{
+				b.active = false;
+				return b.isFlagged ? pre+1 : pre;
+			},0);
+
+			if (cur.isFlipped && flags == cur.mark) {
+				let result = cur.flip_around();
+				if (result == Symbol.for('lose')) {lose()}
+				else if (result == Symbol.for('win')) {win()}
 			}
-		},
+		}
+	},
+};
 
-		right({x,y}){
-			let newPos = get_mouseon_block(x,y);
-			if (!equal(newPos,OUT_OF_BLOCK)) {
-				board[newPos.x][newPos.y].flag();
-			}
+const mh = new MouseDMUHelper(canvas,{mousedown,mousemove,mouseup});
 
-		},
+// 虽然没什么必要用，可以在触发事件时再触发
+// 不过还是加上来吧，万一加个什么动态背景动态图什么的就不用改了
+window.cancelAnimationFrame(aniId);
 
-		cancelLeft({x,y}){
-			let newPos = get_mouseon_block(x,y);
-			if (!equal(newPos,OUT_OF_BLOCK)) {
-				board[newPos.x][newPos.y].active = false;
-				board[newPos.x][newPos.y].around.forEach((b)=>b.active = false);
-			}
-		},
-
-		cancelRight({x,y}){
-			let newPos = get_mouseon_block(x,y);
-			if (!equal(newPos,OUT_OF_BLOCK)) {
-				board[newPos.x][newPos.y].around.forEach((b)=>b.active = false);
-			}
-		},
-
-		both({x,y}){
-			let newPos = get_mouseon_block(x,y);
-			if (!equal(newPos,OUT_OF_BLOCK)) {
-				let cur = board[newPos.x][newPos.y];
-				cur.active = false;
-				let flags = cur.around.reduce((pre,b)=>{
-					b.active = false;
-					return b.isFlagged ? pre+1 : pre;
-				},0);
-
-				if (cur.isFlipped && flags == cur.mark) {
-					let result = cur.flip_around();
-					console.log(result);
-				}
-			}
-		},
-	};
-
-	const mh = new MouseDMUHelper(canvas,{mousedown,mousemove,mouseup});
-
-	// 虽然没什么必要用，可以在触发事件时再触发
-	// 不过还是加上来吧，万一加个什么动态背景动态图什么的就不用改了
-    window.cancelAnimationFrame(aniId);
-
-    aniId = window.requestAnimationFrame(loop);
-})();
+aniId = window.requestAnimationFrame(loop);

@@ -1,4 +1,4 @@
-import ifWithin from '../items/ifWithin'
+import ifWithin from '../funs/ifWithin'
 
 let instance = null;
 
@@ -8,8 +8,8 @@ let $board;
 let $unflipped, $first;
 
 // Symbol用「_」开头
-let _win = Symbol('win');
-let _lose = Symbol('lose');
+let _win = Symbol.for('win');
+let _lose = Symbol.for('lose');
 
 const ran = (a, b) => a + Math.floor(Math.random() * (b-a+1));
 
